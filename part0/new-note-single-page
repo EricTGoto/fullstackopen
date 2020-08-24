@@ -1,0 +1,2 @@
+Browser->Server: HTTP POST https://fullstack-exampleapp.herokuapp.com/new_note_spa
+Server->Browser: HTTP 201 CREATED
