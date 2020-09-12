@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import People from './components/People'
+import Person from './components/Person'
 import Filter from './components/Filter'
 import Form from './components/Form'
-import axios from 'axios'
+import contactService from './services/Contact'
+import Notification from './components/SuccessNotification'
+import Error from './components/Error'
+
 const isInPhonebook = (name, persons) => {
     for (let i = 0; i < persons.length; i++) {
         if (persons[i].name === name) {
@@ -18,18 +21,51 @@ const App = () => {
     const [newNumber, setNewNumber] = useState('')
     const [filterWord, setFilterWord] = useState('')
     const [showAll, setShowAll] = useState(true)
-
+    const [message, setMessage] = useState(null)
+    const [error, setError] = useState(null)
     const peopleToShow = showAll ? persons : persons.filter(person => person.name.toLowerCase().includes(filterWord.toLowerCase()))
 
+    const People = ({ people }) => {
+
+        const removeContact = (id) => {
+            if (window.confirm(`Do you really want to delete this contact?`)) {
+                const personToDelete = persons.find(person => person.id === id)
+
+                contactService
+                    .remove(id)
+                    .catch(error => {
+                        setError('The contact was already deleted')
+                        setTimeout(() => {
+                            setError(null)
+                        }, 2000)
+                        setPersons(persons.filter(person => person.id !== id))
+                    })
+
+                setMessage(`${personToDelete.name} deleted from phonebook`)
+                setTimeout(() => {
+                    setMessage(null)
+                }, 2000)
+                setPersons(persons.filter(person => person.id !== id))
+
+            }
+        }
+
+        return (
+            people.map(person => (
+                <Person key={person.id} name={person.name} number={person.number} onClick={() => removeContact(person.id)} />))
+        )
+    }
+
     const hook = () => {
-        axios
-            .get('http://localhost:3001/persons')
-            .then(response => {
-                setPersons(response.data)
+        contactService
+            .getAll()
+            .then(contacts => {
+                setPersons(contacts)
             })
     }
 
     useEffect(hook, [])
+
     const addNote = (event) => {
         event.preventDefault()
         const noteObject = {
@@ -39,11 +75,38 @@ const App = () => {
             id: persons.length + 1
         }
 
-        if (isInPhonebook(newName, persons)) {
-            window.alert(`${newName} is already in the phonebook!`)
+        if (isInPhonebook(noteObject.name, persons)) {
+            if (window.confirm(`${noteObject.name} is already added to the phonebook, replace the old number with a new one?`)) {
+                const oldInformation = persons.find(person => person.name === noteObject.name)
+                const newInformation = { ...oldInformation, number: noteObject.number }
+
+                contactService
+                    .update(oldInformation.id, newInformation)
+                    .then(contact => {
+                        setMessage(`${noteObject.name}'s number was changed to ${noteObject.number}`)
+                        setTimeout(() => {
+                            setMessage(null)
+                        }, 2000)
+                        setPersons(persons.map(person => person.id !== oldInformation.id ? person : contact))
+                    })
+                    .catch(error => {
+                        setError(`${noteObject.name}'s information was already deleted`)
+                        setTimeout(() => {
+                            setError(null)
+                        }, 2000)
+                        setPersons(persons.filter(person => person.id !== oldInformation.id))
+                    })
+            }
         } else {
-            setPersons(persons.concat(noteObject))
+            setMessage(`Added ${noteObject.name} to the phonebook`)
+            setTimeout(() => {
+                setMessage(null)
+            }, 2000)
+            contactService
+                .create(noteObject)
+                .then(contact => setPersons(persons.concat(contact)))
         }
+
         setNewName('')
         setNewNumber('')
     }
@@ -66,6 +129,8 @@ const App = () => {
     return (
         <div>
             <h2>Phonebook</h2>
+            <Notification message={message} />
+            <Error error={error} />
             <h3>Filter Contacts</h3>
             <Filter filterWord={filterWord} onChange={handleFilterChange} />
             <h3>Add new contacts</h3>
