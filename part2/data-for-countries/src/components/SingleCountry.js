@@ -1,5 +1,7 @@
 import React from 'react'
 import Language from './Language'
+import Weather from './Weather'
+
 const SingleCountry = (props) => {
     return (
         <div>
@@ -11,6 +13,8 @@ const SingleCountry = (props) => {
                 <Language key={language.nativeName} language={language} />
             ))} </ul>
             <img src={props.country.flag} height={100} alt="Country flag"/>
+            <h2>Weather in {props.country.capital}</h2>
+            <Weather country={props.country}/>
         </div>
     )
 }
